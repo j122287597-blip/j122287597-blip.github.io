@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>极简同步日程</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* iOS 磨砂玻璃效果 */
+        .glass { 
+            background: rgba(255, 255, 255, 0.7); 
+            backdrop-filter: blur(20px); 
+            -webkit-backdrop-filter: blur(20px); 
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+        }
+        body { 
+            background-color: #f2f2f7; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* 丝滑的点击缩放动画 */
+        .active-scale:active { transform: scale(0.96); transition: 0.1s; }
+        
+        /* 优先级左侧色条 */
+        .priority-red { border-left: 6px solid #ff3b30; }
+        .priority-orange { border-left: 6px solid #ff9500; }
+        .priority-blue { border-left: 6px solid #007aff; }
+        
+        /* 隐藏滚动条 */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="p-4 md:p-10 pb-20">
+
+    <div class="max-w-2xl mx-auto">
+        <!-- 1. 设置/同步区 -->
+        <div id="setup-section" class="mb-8 p-6 glass rounded-[2rem] shadow-xl text-center">
+            <div class="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+            </div>
+            <h2 class="text-xl font-bold mb-2">多端同步云日程</h2>
+            <p class="text-sm text-gray-500 mb-6">设置一个私钥，在所有设备访问</p>
+            <div class="flex flex-col gap-3">
+                <input type="password" id="userKey" class="w-full p-4 rounded-2xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 transition-all outline-none text-center" placeholder="输入你的同步私钥">
+                <button onclick="initApp()" class="w-full p-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg active-scale">开始同步</button>
+            </div>
+        </div>
+
+        <!-- 2. 主界面 (默认隐藏) -->
+        <div id="main-app" class="hidden animate-in fade-in duration-500">
+            <header class="flex justify-between items-end mb-8 px-2">
+                <div>
+                    <p id="current-date" class="text-gray-500 text-sm font-medium uppercase"></p>
+                    <h1 class="text-4xl font-bold tracking-tight text-black">我的日程</h1>
+                </div>
+                <button onclick="toggleAddModal()" class="w-12 h-12 bg-white text-blue-600 rounded-full shadow-lg border border-gray-100 flex items-center justify-center active-scale transition-transform">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </header>
+
+            <!-- 统计栏 -->
+            <div id="stats-bar" class="grid grid-cols-2 gap-4 mb-8">
+                <!-- 由 JS 动态更新 -->
+            </div>
+
+            <!-- 任务列表 -->
+            <div id="task-list" class="space-y-4">
+                <!-- 动态加载 -->
+            </div>
+            
+            <div id="empty-state" class="hidden text-center py-20 text-gray-400">
+                <p>暂无日程，点击右上角添加</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 添加/编辑弹窗 -->
+    <div id="add-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-end md:items-center justify-center p-0 md:p-4 z-50">
+        <div class="glass w-full max-w-lg p-8 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">新建日程</h2>
+                <button onclick="toggleAddModal()" class="text-gray-400 hover:text-black">取消</button>
+            </div>
+            <div class="space-y-4 text-sm">
+                <input id="newTitle" type="text" placeholder="要做什么？" class="w-full p-4 rounded-2xl border-none bg-gray-100/50 focus:bg-white ring-1 ring-gray-200 outline-none text-base">
+                <textarea id="newNote" placeholder="添加备注 (可选)" class="w-full p-4 rounded-2xl border-none bg-gray-100/50 focus:bg-white ring-1 ring-gray-200 outline-none h-24 text-base"></textarea>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">提醒时间</label>
+                        <input id="newTime" type="datetime-local" class="w-full p-4 rounded-2xl border-none bg-gray-100/50 ring-1 ring-gray-200 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">优先级</label>
+                        <select id="newPriority" class="w-full p-4 rounded-2xl border-none bg-gray-100/50 ring-1 ring-gray-200 outline-none appearance-none">
+                            <option value="blue">🔵 普通</option>
+                            <option value="orange">🟠 重要</option>
+                            <option value="red">🔴 紧急</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="saveTask()" class="w-full p-5 bg-blue-600 text-white rounded-2xl font-bold shadow-xl active-scale mt-4">确认保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 基础配置 (请填入你的信息) ---
+        const SUPABASE_URL = 'https://adjnxlkyviswfwvzamvw.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_s9jX2zCe3SQmM0gKJwDkQA_XKfL5hwX'; 
+        
+        // 创建客户端 (重命名变量以避免冲突)
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let currentUserKey = '';
+
+        // --- 2. 初始化逻辑 ---
+        window.onload = () => {
+            const now = new Date();
+            document.getElementById('current-date').innerText = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+            
+            const savedKey = localStorage.getItem('my_sync_key');
+            if(savedKey) {
+                document.getElementById('userKey').value = savedKey;
+                setTimeout(initApp, 500);
+            }
+        };
+
+        async function initApp() {
+            currentUserKey = document.getElementById('userKey').value.trim();
+            if(!currentUserKey) return alert("请输入私钥以开启同步");
+            
+            localStorage.setItem('my_sync_key', currentUserKey);
+            document.getElementById('setup-section').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            fetchTasks();
+        }
+
+        // --- 3. 数据交互逻辑 ---
+        async function fetchTasks() {
+            const { data, error } = await supabaseClient
+                .from('tasks')
+                .select('*')
+                .eq('user_id', currentUserKey)
+                .order('target_time', { ascending: true });
+            
+            if (error) {
+                console.error(error);
+                return;
+            }
+            renderTasks(data);
+        }
+
+        async function saveTask() {
+            const title = document.getElementById('newTitle').value;
+            const time = document.getElementById('newTime').value;
+            if(!title || !time) return alert("请填写标题和时间");
+
+            const newTask = {
+                user_id: currentUserKey,
+                title: title,
+                note: document.getElementById('newNote').value,
+                target_time: time,
+                priority: document.getElementById('newPriority').value,
+                status: 'pending'
+            };
+
+            const { error } = await supabaseClient.from('tasks').insert([newTask]);
+            if(error) {
+                alert("保存失败: " + error.message);
+            } else {
+                toggleAddModal();
+                // 清空表单
+                document.getElementById('newTitle').value = '';
+                document.getElementById('newNote').value = '';
+                fetchTasks();
+            }
+        }
+
+        async function completeTask(id) {
+            const { error } = await supabaseClient.from('tasks').delete().eq('id', id);
+            if(error) alert("操作失败");
+            else fetchTasks();
+        }
+
+        // --- 4. 界面渲染逻辑 ---
+        function renderTasks(tasks) {
+            const listDiv = document.getElementById('task-list');
+            const emptyState = document.getElementById('empty-state');
+            
+            if(!tasks || tasks.length === 0) {
+                listDiv.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            listDiv.innerHTML = tasks.map(t => {
+                const taskDate = new Date(t.target_time);
+                const timeStr = taskDate.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                const dateStr = taskDate.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+                
+                return `
+                <div class="glass p-5 rounded-[2rem] shadow-sm active-scale priority-${t.priority} flex justify-between items-center group">
+                    <div class="flex-1 pr-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="font-bold text-lg text-gray-800">${t.title}</span>
+                        </div>
+                        <div class="text-sm text-gray-500 line-clamp-2 mb-2">${t.note || ''}</div>
+                        <div class="flex items-center gap-3">
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-400">🕒 ${dateStr} ${timeStr}</span>
+                        </div>
+                    </div>
+                    <button onclick="completeTask('${t.id}')" class="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center active:bg-blue-600 active:text-white transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                    </button>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function toggleAddModal() {
+            const modal = document.getElementById('add-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+    </script>
+</body>
+</html>

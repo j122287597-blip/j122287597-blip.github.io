@@ -718,13 +718,13 @@
     const vidB = document.querySelector('.hero-video-next');
 
     function crossfade(from, to, nextIdx) {
-      from.classList.remove('showing'); // 确保旧视频不再是 showing
-      from.classList.add('fading');     // 模糊淡出
-      to.classList.add('showing');      // 新视频淡入
+      from.classList.remove('showing');
+      from.classList.add('fading');
+      to.classList.add('showing');
+      to.style.zIndex = '';  // 清除旧 inline，让 CSS 管理 z-index
       setTimeout(() => {
-        from.classList.remove('fading'); // 回到 opacity:0 隐藏
-        // to 保持 showing → opacity:1 显示
-        to.style.zIndex = '0';           // 不再需要叠加
+        from.classList.remove('fading');
+        from.style.zIndex = '';
         currentIdx = nextIdx;
       }, 1100);
     }
@@ -737,43 +737,53 @@
     // A → B
     function switchToB() {
       const next = (currentIdx + 1) % videoSources.length;
-      function play() {
-        vidB.removeEventListener('canplay', play);
+      loadIn(vidB, next);   // 设置源，开始加载
+
+      function go() {
+        vidB.removeEventListener('canplay', go);
         vidB.play();
         crossfade(vidA, vidB, next);
-        // 提前加载下一个视频，利用播放的 3 秒做缓冲
+        // 预加载下一个视频
         const nextNext = (next + 1) % videoSources.length;
         loadIn(vidA, nextNext);
         vidB.addEventListener('ended', switchToA, { once: true });
       }
-      // 如果已经缓冲好了（提前预加载过），直接播放
+
       if (vidB.readyState >= 3) {
-        play();
+        go();  // 已缓冲好（被 playing 事件预加载过）
       } else {
-        vidB.addEventListener('canplay', play, { once: true });
+        vidB.addEventListener('canplay', go, { once: true });
       }
     }
 
     // B → A
     function switchToA() {
       const next = (currentIdx + 1) % videoSources.length;
-      function play() {
-        vidA.removeEventListener('canplay', play);
+      loadIn(vidA, next);
+
+      function go() {
+        vidA.removeEventListener('canplay', go);
         vidA.play();
         crossfade(vidB, vidA, next);
-        // 提前加载下一个视频
         const nextNext = (next + 1) % videoSources.length;
         loadIn(vidB, nextNext);
         vidA.addEventListener('ended', switchToB, { once: true });
       }
+
       if (vidA.readyState >= 3) {
-        play();
+        go();
       } else {
-        vidA.addEventListener('canplay', play, { once: true });
+        vidA.addEventListener('canplay', go, { once: true });
       }
     }
 
-    // 启动：A 播放第一个，结束后切 B
+    // 首视频开始播放后，后台预加载第二个视频（利用 3 秒播放时间）
+    vidA.addEventListener('playing', function onFirstPlay() {
+      vidA.removeEventListener('playing', onFirstPlay);
+      loadIn(vidB, 1);
+    }, { once: true });
+
+    // 启动：首视频结束后切 B
     vidA.addEventListener('ended', switchToB, { once: true });
 
     // ═══════════════ 数字跳动动画 ═══════════════

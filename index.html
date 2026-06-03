@@ -706,12 +706,19 @@
 
   <script>
     // ═══════════════ 视频轮播：乒乓切换，每个播一次 ──
+    const isMobile = window.innerWidth <= 768;
+    const basePath = isMobile ? 'videos/mobile/' : 'videos/';
     const videoSources = [
-      'videos/hero-01-city.mp4',
-      'videos/hero-02-sea.mp4',
-      'videos/hero-03-sky.mp4',
-      'videos/hero-04-scenery.mp4',
+      basePath + 'hero-01-city.mp4',
+      basePath + 'hero-02-sea.mp4',
+      basePath + 'hero-03-sky.mp4',
+      basePath + 'hero-04-scenery.mp4',
     ];
+    // 手机端替换首视频的初始源
+    if (isMobile) {
+      const firstSource = document.querySelector('.hero-video source');
+      if (firstSource) firstSource.src = videoSources[0];
+    }
     let currentIdx = 0;
 
     const vidA = document.querySelector('.hero-video');

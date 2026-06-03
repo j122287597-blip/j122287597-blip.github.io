@@ -737,27 +737,44 @@
     // A → B
     function switchToB() {
       const next = (currentIdx + 1) % videoSources.length;
-      loadIn(vidB, next);
-      vidB.addEventListener('canplay', function ready() {
-        vidB.removeEventListener('canplay', ready);
+      function play() {
+        vidB.removeEventListener('canplay', play);
         vidB.play();
         crossfade(vidA, vidB, next);
+        // 提前加载下一个视频，利用播放的 3 秒做缓冲
+        const nextNext = (next + 1) % videoSources.length;
+        loadIn(vidA, nextNext);
         vidB.addEventListener('ended', switchToA, { once: true });
-      }, { once: true });
+      }
+      // 如果已经缓冲好了（提前预加载过），直接播放
+      if (vidB.readyState >= 3) {
+        play();
+      } else {
+        vidB.addEventListener('canplay', play, { once: true });
+      }
     }
 
     // B → A
     function switchToA() {
       const next = (currentIdx + 1) % videoSources.length;
-      loadIn(vidA, next);
-      vidA.addEventListener('canplay', function ready() {
-        vidA.removeEventListener('canplay', ready);
+      function play() {
+        vidA.removeEventListener('canplay', play);
         vidA.play();
         crossfade(vidB, vidA, next);
+        // 提前加载下一个视频
+        const nextNext = (next + 1) % videoSources.length;
+        loadIn(vidB, nextNext);
         vidA.addEventListener('ended', switchToB, { once: true });
-      }, { once: true });
+      }
+      if (vidA.readyState >= 3) {
+        play();
+      } else {
+        vidA.addEventListener('canplay', play, { once: true });
+      }
     }
 
+    // 页面加载时立刻预加载第二个视频
+    loadIn(vidB, 1);
     // 启动：A 播放第一个，结束后切 B
     vidA.addEventListener('ended', switchToB, { once: true });
 

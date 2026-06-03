@@ -546,7 +546,7 @@
   <!-- Section 1: Hero -->
   <section class="hero">
     <!-- 视频背景：主通道 -->
-    <video class="hero-video showing" autoplay muted playsinline preload="auto">
+    <video class="hero-video showing" autoplay muted playsinline preload="auto" poster="videos/hero-poster.jpg">
       <source src="videos/hero-01-city.mp4" type="video/mp4">
     </video>
     <!-- 视频背景：次通道（交叉淡入淡出用） -->
@@ -773,8 +773,6 @@
       }
     }
 
-    // 页面加载时立刻预加载第二个视频
-    loadIn(vidB, 1);
     // 启动：A 播放第一个，结束后切 B
     vidA.addEventListener('ended', switchToB, { once: true });
 

@@ -737,7 +737,11 @@
     }
 
     function loadIn(el, idx) {
-      el.querySelector('source').src = videoSources[idx];
+      const newSrc = videoSources[idx];
+      const sourceEl = el.querySelector('source');
+      // 如果源没变且已缓冲好，不重复加载，避免重置 readyState
+      if (sourceEl.src.endsWith(newSrc) && el.readyState >= 2) return;
+      sourceEl.src = newSrc;
       el.load();
     }
 

@@ -5,11 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>吉宇翔 | 个人主页</title>
   <link href="https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
-  <!-- 预加载 Hero 背景视频，页面打开即开始下载 -->
-  <link rel="preload" as="video" href="videos/hero-01-city.mp4">
-  <link rel="preload" as="video" href="videos/hero-02-sea.mp4">
-  <link rel="preload" as="video" href="videos/hero-03-sky.mp4">
-  <link rel="preload" as="video" href="videos/hero-04-scenery.mp4">
+  <!-- 仅预加载首个 Hero 视频，避免带宽争抢 -->
   <style>
     /* ── 字体与全局变量 ── */
     @font-face {

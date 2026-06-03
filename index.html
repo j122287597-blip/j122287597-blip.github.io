@@ -744,20 +744,22 @@
     // A → B
     function switchToB() {
       const next = (currentIdx + 1) % videoSources.length;
-      loadIn(vidB, next);   // 设置源，开始加载
+      loadIn(vidB, next);
 
       function go() {
         vidB.removeEventListener('canplay', go);
         vidB.play();
         crossfade(vidA, vidB, next);
-        // 预加载下一个视频
-        const nextNext = (next + 1) % videoSources.length;
-        loadIn(vidA, nextNext);
         vidB.addEventListener('ended', switchToA, { once: true });
+        // 等 crossfade 完成后再预加载，避免旧元素换源闪回
+        setTimeout(() => {
+          const nextNext = (next + 1) % videoSources.length;
+          loadIn(vidA, nextNext);
+        }, 1200);
       }
 
       if (vidB.readyState >= 3) {
-        go();  // 已缓冲好（被 playing 事件预加载过）
+        go();
       } else {
         vidB.addEventListener('canplay', go, { once: true });
       }
@@ -772,9 +774,11 @@
         vidA.removeEventListener('canplay', go);
         vidA.play();
         crossfade(vidB, vidA, next);
-        const nextNext = (next + 1) % videoSources.length;
-        loadIn(vidB, nextNext);
         vidA.addEventListener('ended', switchToB, { once: true });
+        setTimeout(() => {
+          const nextNext = (next + 1) % videoSources.length;
+          loadIn(vidB, nextNext);
+        }, 1200);
       }
 
       if (vidA.readyState >= 3) {
@@ -784,9 +788,9 @@
       }
     }
 
-    // 首视频开始播放后，后台预加载第二个视频（利用 3 秒播放时间）
-    vidA.addEventListener('playing', function onFirstPlay() {
-      vidA.removeEventListener('playing', onFirstPlay);
+    // 首视频可播放时就预加载第二个，争取更多缓冲时间
+    vidA.addEventListener('canplay', function onReady() {
+      vidA.removeEventListener('canplay', onReady);
       loadIn(vidB, 1);
     }, { once: true });
 
